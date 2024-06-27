@@ -1,16 +1,14 @@
+import { Theme } from "@radix-ui/themes";
 import {
   render,
   screen,
   waitForElementToBeRemoved,
 } from "@testing-library/react";
-import { server } from "../mocks/server";
-import { http, delay, HttpResponse } from "msw";
-import BrowseProducts from "../../src/pages/BrowseProductsPage";
-import { Theme } from "@radix-ui/themes";
 import userEvent from "@testing-library/user-event";
-import { db } from "../mocks/db";
 import { Category, Product } from "../../src/entities";
+import BrowseProducts from "../../src/pages/BrowseProductsPage";
 import { CartProvider } from "../../src/providers/CartProvider";
+import { db } from "../mocks/db";
 import { simulateDelay, simulateError } from "../utils";
 
 describe("BrowseProductsPage", () => {
@@ -19,8 +17,11 @@ describe("BrowseProductsPage", () => {
 
   beforeAll(() => {
     [1, 2].forEach(() => {
-      categories.push(db.category.create());
-      products.push(db.product.create());
+      const category = db.category.create();
+      categories.push(category);
+      [1, 2].forEach(() => {
+        products.push(db.product.create({ categoryId: category.id }));
+      });
     });
   });
 
@@ -127,6 +128,59 @@ describe("BrowseProductsPage", () => {
     const { getProductsSkeleton } = renderComponent();
 
     await waitForElementToBeRemoved(getProductsSkeleton);
+
+    products.forEach((product) => {
+      expect(screen.getByText(product.name)).toBeInTheDocument();
+    });
+  });
+
+  it("should filter products by category", async () => {
+    const { getCategoriesSkeleton, getCategoriesComboBox } = renderComponent();
+
+    // Arrange
+    await waitForElementToBeRemoved(getCategoriesSkeleton);
+    const combobox = getCategoriesComboBox();
+    const user = userEvent.setup();
+    await user.click(combobox!);
+
+    // Act
+    const selectedCategory = categories[0];
+    const option = screen.getByRole("option", { name: selectedCategory.name });
+    await user.click(option);
+
+    // Assert
+    const products = db.product.findMany({
+      where: {
+        categoryId: { equals: selectedCategory.id },
+      },
+    });
+    const rows = screen.getAllByRole("row");
+    const dataRows = rows.slice(1);
+    expect(dataRows).toHaveLength(products.length);
+
+    products.forEach((product) => {
+      expect(screen.getByText(product.name)).toBeInTheDocument();
+    });
+  });
+
+  it("should render all products if All category is selected", async () => {
+    const { getCategoriesSkeleton, getCategoriesComboBox } = renderComponent();
+
+    // Arrange
+    await waitForElementToBeRemoved(getCategoriesSkeleton);
+    const combobox = getCategoriesComboBox();
+    const user = userEvent.setup();
+    await user.click(combobox!);
+
+    // Act
+    const option = screen.getByRole("option", { name: /all/i });
+    await user.click(option);
+
+    // Assert
+    const products = db.product.getAll();
+    const rows = screen.getAllByRole("row");
+    const dataRows = rows.slice(1);
+    expect(dataRows).toHaveLength(products.length);
 
     products.forEach((product) => {
       expect(screen.getByText(product.name)).toBeInTheDocument();
