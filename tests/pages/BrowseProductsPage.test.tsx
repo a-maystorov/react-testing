@@ -1,4 +1,3 @@
-import { Theme } from "@radix-ui/themes";
 import {
   render,
   screen,
@@ -7,7 +6,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { Category, Product } from "../../src/entities";
 import BrowseProducts from "../../src/pages/BrowseProductsPage";
-import { CartProvider } from "../../src/providers/CartProvider";
+import AllProviders from "../AllProviders";
 import { db, getProductsByCategory } from "../mocks/db";
 import { simulateDelay, simulateError } from "../utils";
 
@@ -16,8 +15,8 @@ describe("BrowseProductsPage", () => {
   const products: Product[] = [];
 
   beforeAll(() => {
-    [1, 2].forEach(() => {
-      const category = db.category.create();
+    [1, 2].forEach((item) => {
+      const category = db.category.create({ name: "Category " + item });
       categories.push(category);
       [1, 2].forEach(() => {
         products.push(db.product.create({ categoryId: category.id }));
@@ -47,17 +46,21 @@ describe("BrowseProductsPage", () => {
 
   it("should hide the loading skeleton after categories are fetched", async () => {
     const { getCategoriesSkeleton } = renderComponent();
+
     await waitForElementToBeRemoved(getCategoriesSkeleton);
   });
 
   it("should show a loading skeleton when fetching products", () => {
     simulateDelay("/products");
+
     const { getProductsSkeleton } = renderComponent();
+
     expect(getProductsSkeleton()).toBeInTheDocument();
   });
 
   it("should hide the loading skeleton after products are fetched", async () => {
     const { getProductsSkeleton } = renderComponent();
+
     await waitForElementToBeRemoved(getProductsSkeleton);
   });
 
@@ -67,6 +70,7 @@ describe("BrowseProductsPage", () => {
     const { getCategoriesSkeleton, getCategoriesComboBox } = renderComponent();
 
     await waitForElementToBeRemoved(getCategoriesSkeleton);
+
     expect(screen.queryByText(/error/i)).not.toBeInTheDocument();
     expect(getCategoriesComboBox()).not.toBeInTheDocument();
   });
@@ -111,6 +115,7 @@ describe("BrowseProductsPage", () => {
   it("should filter products by category", async () => {
     const { selectCategory, expectProductsToBeInTheDocument } =
       renderComponent();
+
     const selectedCategory = categories[0];
     await selectCategory(selectedCategory.name);
 
@@ -130,13 +135,7 @@ describe("BrowseProductsPage", () => {
 });
 
 const renderComponent = () => {
-  render(
-    <CartProvider>
-      <Theme>
-        <BrowseProducts />
-      </Theme>
-    </CartProvider>
-  );
+  render(<BrowseProducts />, { wrapper: AllProviders });
 
   const getCategoriesSkeleton = () =>
     screen.queryByRole("progressbar", {
